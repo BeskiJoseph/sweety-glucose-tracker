@@ -36,14 +36,8 @@ const errorMiddleware = (err, req, res, next) => {
     console.warn(`[WARN] ${req.method} ${req.originalUrl} (${statusCode}): ${err.message}`);
   }
 
-  // Safe client message: do not expose internal details, stack traces, or SQL errors
-  const isClientError = statusCode < 500;
-  const isOperational = Boolean(err.isOperational);
-
-  let message = 'Internal server error';
-  if (isClientError || isOperational) {
-    message = err.message || 'An error occurred';
-  }
+  // Safe client message: HTTP 4xx errors return client-facing messages; HTTP 5xx errors always return 'Internal server error'
+  const message = statusCode >= 500 ? 'Internal server error' : (err.message || 'Client error');
 
   return res.status(statusCode).json({
     success: false,
