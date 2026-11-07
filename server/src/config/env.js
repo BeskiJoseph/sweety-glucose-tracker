@@ -6,6 +6,10 @@ const envPath = path.resolve(__dirname, '../../.env');
 dotenv.config({ path: envPath });
 
 const NODE_ENV = process.env.NODE_ENV || 'development';
+const isProduction = NODE_ENV === 'production';
+const isDevelopment = NODE_ENV === 'development';
+const isTest = NODE_ENV === 'test';
+
 const rawPort = process.env.PORT || '5000';
 const PORT = parseInt(rawPort, 10);
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
@@ -40,11 +44,40 @@ try {
   );
 }
 
+// Validate DATABASE_URL
+const DATABASE_URL =
+  process.env.DATABASE_URL ||
+  (!isProduction ? 'postgres://postgres:root@localhost:5432/sweety_db' : '');
+
+if (isProduction && !DATABASE_URL) {
+  throw new Error('Invalid environment configuration: DATABASE_URL is required in production.');
+}
+
+// Validate JWT_SECRET: must come from environment variables and must not be insecure
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error(
+    'Invalid environment configuration: JWT_SECRET is required and must be provided via environment variables.'
+  );
+}
+
+const minSecretLength = isProduction ? 32 : 16;
+if (JWT_SECRET.length < minSecretLength) {
+  throw new Error(
+    `Invalid environment configuration: JWT_SECRET is insecure. Must be at least ${minSecretLength} characters long in ${NODE_ENV} mode.`
+  );
+}
+
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+
 module.exports = {
   NODE_ENV,
   PORT,
   CLIENT_URL,
-  isProduction: NODE_ENV === 'production',
-  isDevelopment: NODE_ENV === 'development',
-  isTest: NODE_ENV === 'test'
+  DATABASE_URL,
+  JWT_SECRET,
+  JWT_EXPIRES_IN,
+  isProduction,
+  isDevelopment,
+  isTest
 };

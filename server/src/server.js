@@ -1,4 +1,5 @@
 const { PORT, NODE_ENV } = require('./config/env');
+const { closePool } = require('./config/db');
 const app = require('./app');
 
 let server;
@@ -56,10 +57,14 @@ const shutdown = (reason, exitCode = 0) => {
       } else {
         console.log('[Sweety API] HTTP server closed cleanly. Process exiting.');
       }
-      process.exit(exitCode);
+      closePool().catch(() => {}).finally(() => {
+        process.exit(exitCode);
+      });
     });
   } else {
-    process.exit(exitCode);
+    closePool().catch(() => {}).finally(() => {
+      process.exit(exitCode);
+    });
   }
 };
 

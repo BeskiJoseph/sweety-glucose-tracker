@@ -3,6 +3,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const { CLIENT_URL } = require('./config/env');
+const authRoutes = require('./routes/auth.routes');
 const notFoundMiddleware = require('./middleware/notFound.middleware');
 const errorMiddleware = require('./middleware/error.middleware');
 
@@ -26,6 +27,9 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
 // Cookie parser for HTTP-only cookies
 app.use(cookieParser());
+
+// Authentication routes
+app.use('/api/auth', authRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
