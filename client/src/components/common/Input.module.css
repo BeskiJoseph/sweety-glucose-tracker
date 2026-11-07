@@ -1,0 +1,95 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  text-align: left;
+}
+
+.labelWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+}
+
+.requiredIndicator {
+  color: var(--color-error-primary);
+  margin-left: var(--space-1);
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.input {
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.75rem;
+  min-height: 2.5rem;
+  line-height: var(--line-height-normal);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.input::placeholder {
+  color: var(--text-disabled);
+}
+
+.input:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: var(--focus-ring);
+}
+
+/* States */
+.hasError .input {
+  border-color: var(--color-error-primary);
+}
+
+.hasError .input:focus {
+  border-color: var(--color-error-primary);
+  box-shadow: var(--focus-ring-error);
+}
+
+.input:disabled {
+  background-color: var(--bg-surface-muted);
+  color: var(--text-disabled);
+  border-color: var(--border-subtle);
+  cursor: not-allowed;
+}
+
+/* Helper & Error Messages */
+.message {
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+  margin-top: 2px;
+}
+
+.errorText {
+  color: var(--color-error-text);
+  font-weight: var(--font-weight-medium);
+}
+
+.helperText {
+  color: var(--text-muted);
+}
