@@ -1,12 +1,42 @@
 const { Pool } = require('pg');
-const { DATABASE_URL, isProduction } = require('./env');
+const { DATABASE_URL, DATABASE_SSL_CA, isProduction } = require('./env');
+
+/**
+ * Configure PostgreSQL SSL options.
+ *
+ * In production:
+ * - Certificate verification is strictly enforced (rejectUnauthorized: true).
+ * - Optional custom CA certificate (DATABASE_SSL_CA) is attached if required by cloud provider.
+ *
+ * In non-production:
+ * - SSL is disabled by default for local PostgreSQL instances.
+ *
+ * @param {boolean} [forceProduction] - Optional override for testing
+ * @param {string|null} [customCa] - Optional CA certificate override for testing
+ * @returns {object|boolean} SSL configuration object or false
+ */
+function getSslConfig(forceProduction = isProduction, customCa = DATABASE_SSL_CA) {
+  if (!forceProduction) {
+    return false;
+  }
+
+  const sslConfig = {
+    rejectUnauthorized: true
+  };
+
+  if (customCa) {
+    sslConfig.ca = customCa;
+  }
+
+  return sslConfig;
+}
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
-  ssl: isProduction ? { rejectUnauthorized: false } : false
+  ssl: getSslConfig()
 });
 
 pool.on('error', (err) => {
@@ -45,5 +75,6 @@ async function closePool() {
 module.exports = {
   pool,
   query,
-  closePool
+  closePool,
+  getSslConfig
 };

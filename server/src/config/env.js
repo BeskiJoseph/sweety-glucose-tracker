@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 const dotenv = require('dotenv');
 
 // Load environment variables from .env in server directory if present
@@ -44,25 +45,50 @@ try {
   );
 }
 
-// Validate DATABASE_URL
-const DATABASE_URL =
-  process.env.DATABASE_URL ||
-  (!isProduction ? 'postgres://postgres:root@localhost:5432/sweety_db' : '');
+// Validate DATABASE_URL: must come from environment variables
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL || !DATABASE_URL.trim()) {
+  throw new Error(
+    'Invalid environment configuration: DATABASE_URL is required and must be provided via environment variables.'
+  );
+}
 
-if (isProduction && !DATABASE_URL) {
-  throw new Error('Invalid environment configuration: DATABASE_URL is required in production.');
+try {
+  const parsedDbUrl = new URL(DATABASE_URL);
+  if (!['postgres:', 'postgresql:'].includes(parsedDbUrl.protocol)) {
+    throw new Error('Protocol must be postgres: or postgresql:');
+  }
+} catch (error) {
+  throw new Error(
+    `Invalid environment configuration: DATABASE_URL must be a valid PostgreSQL connection URL. (${error.message})`
+  );
+}
+
+// Optional CA certificate for database SSL verification in production / cloud providers
+let DATABASE_SSL_CA = process.env.DATABASE_SSL_CA || null;
+if (DATABASE_SSL_CA) {
+  DATABASE_SSL_CA = DATABASE_SSL_CA.trim();
+  if (fs.existsSync(DATABASE_SSL_CA)) {
+    try {
+      DATABASE_SSL_CA = fs.readFileSync(DATABASE_SSL_CA, 'utf8');
+    } catch (err) {
+      throw new Error(
+        `Invalid environment configuration: Failed to read DATABASE_SSL_CA from "${DATABASE_SSL_CA}": ${err.message}`
+      );
+    }
+  }
 }
 
 // Validate JWT_SECRET: must come from environment variables and must not be insecure
 const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
+if (!JWT_SECRET || !JWT_SECRET.trim()) {
   throw new Error(
     'Invalid environment configuration: JWT_SECRET is required and must be provided via environment variables.'
   );
 }
 
 const minSecretLength = isProduction ? 32 : 16;
-if (JWT_SECRET.length < minSecretLength) {
+if (JWT_SECRET.trim().length < minSecretLength) {
   throw new Error(
     `Invalid environment configuration: JWT_SECRET is insecure. Must be at least ${minSecretLength} characters long in ${NODE_ENV} mode.`
   );
@@ -75,6 +101,7 @@ module.exports = {
   PORT,
   CLIENT_URL,
   DATABASE_URL,
+  DATABASE_SSL_CA,
   JWT_SECRET,
   JWT_EXPIRES_IN,
   isProduction,

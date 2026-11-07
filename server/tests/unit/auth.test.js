@@ -2,6 +2,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { hashPassword, comparePassword } = require('../../src/utils/password.util');
+const { getSslConfig } = require('../../src/config/db');
 const {
   signToken,
   verifyToken,
@@ -12,6 +13,15 @@ const {
   validateRegister,
   validateLogin
 } = require('../../src/validators/auth.validator');
+const {
+  authRateLimiter,
+  resetRateLimiter,
+  pruneExpiredEntries,
+  getRateLimiterStats,
+  WINDOW_MS,
+  MAX_ATTEMPTS,
+  MAX_TRACKED_CLIENTS
+} = require('../../src/middleware/rateLimiter.middleware');
 
 describe('Unit Tests: Password Utility', () => {
   it('should hash a password with bcrypt and produce a valid non-plaintext hash', async () => {
@@ -40,6 +50,28 @@ describe('Unit Tests: Password Utility', () => {
     await assert.rejects(async () => {
       await hashPassword('');
     }, /Password must be a non-empty string/);
+  });
+});
+
+describe('Unit Tests: Database SSL Configuration', () => {
+  it('should disable SSL in development/testing environments', () => {
+    const ssl = getSslConfig(false);
+    assert.equal(ssl, false);
+  });
+
+  it('should enforce SSL certificate verification in production (rejectUnauthorized: true)', () => {
+    const ssl = getSslConfig(true, null);
+    assert.equal(typeof ssl, 'object');
+    assert.equal(ssl.rejectUnauthorized, true);
+    assert.equal(ssl.ca, undefined);
+  });
+
+  it('should attach custom CA certificate when provided in production', () => {
+    const fakeCa = '-----BEGIN CERTIFICATE-----\nFAKE_CERT\n-----END CERTIFICATE-----';
+    const ssl = getSslConfig(true, fakeCa);
+    assert.equal(typeof ssl, 'object');
+    assert.equal(ssl.rejectUnauthorized, true);
+    assert.equal(ssl.ca, fakeCa);
   });
 });
 
@@ -73,6 +105,106 @@ describe('Unit Tests: Token Utility', () => {
     const clearOptions = getClearCookieOptions();
     assert.equal(clearOptions.httpOnly, true);
     assert.equal(clearOptions.path, '/');
+
+    // Security flags between auth and clear cookie MUST match for reliable browser deletion
+    assert.equal(clearOptions.httpOnly, options.httpOnly);
+    assert.equal(clearOptions.secure, options.secure);
+    assert.equal(clearOptions.sameSite, options.sameSite);
+    assert.equal(clearOptions.path, options.path);
+  });
+});
+
+describe('Unit Tests: Fixed-Window Rate Limiter Middleware', () => {
+  it('should allow requests below limit and block when max attempts reached', () => {
+    resetRateLimiter();
+    const mockReq = { ip: '192.168.1.100' };
+    const mockRes = {
+      setHeader: (name, val) => {
+        mockRes.headers = mockRes.headers || {};
+        mockRes.headers[name] = val;
+      }
+    };
+
+    let nextCalled = 0;
+    let nextError = null;
+    const next = (err) => {
+      if (err) nextError = err;
+      else nextCalled++;
+    };
+
+    // 10 requests allowed
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      authRateLimiter(mockReq, mockRes, next);
+    }
+    assert.equal(nextCalled, MAX_ATTEMPTS);
+    assert.equal(nextError, null);
+
+    // 11th request blocked
+    authRateLimiter(mockReq, mockRes, next);
+    assert.ok(nextError);
+    assert.equal(nextError.statusCode, 429);
+    assert.ok(mockRes.headers['Retry-After']);
+
+    resetRateLimiter();
+  });
+
+  it('should track different client IPs independently', () => {
+    resetRateLimiter();
+    const req1 = { ip: '10.0.0.1' };
+    const req2 = { ip: '10.0.0.2' };
+    const mockRes = { setHeader: () => {} };
+
+    let calls1 = 0;
+    let calls2 = 0;
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      authRateLimiter(req1, mockRes, () => calls1++);
+    }
+    authRateLimiter(req2, mockRes, () => calls2++);
+
+    assert.equal(calls1, MAX_ATTEMPTS);
+    assert.equal(calls2, 1);
+
+    resetRateLimiter();
+  });
+
+  it('should enforce strict memory bound and never exceed MAX_TRACKED_CLIENTS when receiving requests from 10,001 distinct IPs', () => {
+    resetRateLimiter();
+    const mockRes = { setHeader: () => {} };
+    const noop = () => {};
+
+    // Send requests from 10,001 distinct IP addresses (0 to 10,000 inclusive)
+    for (let i = 0; i <= MAX_TRACKED_CLIENTS; i++) {
+      const ip = `10.${(i >> 16) & 255}.${(i >> 8) & 255}.${i & 255}`;
+      authRateLimiter({ ip }, mockRes, noop);
+      assert.ok(
+        getRateLimiterStats().size <= MAX_TRACKED_CLIENTS,
+        `Expected size <= ${MAX_TRACKED_CLIENTS}, got ${getRateLimiterStats().size}`
+      );
+    }
+
+    const finalStats = getRateLimiterStats();
+    assert.equal(finalStats.size, MAX_TRACKED_CLIENTS);
+    resetRateLimiter();
+  });
+
+  it('should create a rate-limit record and remove it when pruneExpiredEntries() is called beyond its reset time', () => {
+    resetRateLimiter();
+    const mockRes = { setHeader: () => {} };
+    const noop = () => {};
+
+    // 1. Create a rate-limit record
+    authRateLimiter({ ip: '192.168.10.50' }, mockRes, noop);
+    assert.equal(getRateLimiterStats().size, 1);
+
+    // 2. Prune with current time (not expired yet) -> still present
+    pruneExpiredEntries(Date.now());
+    assert.equal(getRateLimiterStats().size, 1);
+
+    // 3. Call pruneExpiredEntries() with a timestamp beyond its reset time -> record removed
+    pruneExpiredEntries(Date.now() + WINDOW_MS + 1000);
+    assert.equal(getRateLimiterStats().size, 0);
+
+    resetRateLimiter();
   });
 });
 
@@ -113,6 +245,16 @@ describe('Unit Tests: Auth Validator', () => {
     assert.throws(() => {
       validateRegister({ name: 'Valid Name', email: 'test@example.com', password: 'short' });
     }, /Password must be at least 8 characters/);
+  });
+
+  it('should reject registration with passwords exceeding 128 characters', () => {
+    assert.throws(() => {
+      validateRegister({
+        name: 'Valid Name',
+        email: 'test@example.com',
+        password: 'A'.repeat(129)
+      });
+    }, /Password must not exceed 128 characters/);
   });
 
   it('should validate and normalize login payload', () => {
