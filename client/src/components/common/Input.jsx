@@ -13,6 +13,7 @@ import styles from './Input.module.css';
  * @param {string} [props.helperText] - Hint text displayed below input when no error
  * @param {boolean} [props.disabled=false] - Disabled state
  * @param {boolean} [props.required=false] - Required indicator and attribute
+ * @param {React.ReactNode} [props.suffix] - Optional suffix element (e.g. icon or toggle button)
  * @param {string} [props.className=''] - Container class name
  */
 function Input({
@@ -24,6 +25,7 @@ function Input({
   helperText,
   disabled = false,
   required = false,
+  suffix = null,
   className = '',
   value,
   onChange,
@@ -60,7 +62,7 @@ function Input({
         </div>
       )}
 
-      <div className={styles.inputWrapper}>
+      <div className={`${styles.inputWrapper} ${suffix ? styles.hasSuffix : ''}`}>
         <input
           id={inputId}
           type={type}
@@ -74,6 +76,7 @@ function Input({
           className={styles.input}
           {...rest}
         />
+        {suffix && <div className={styles.suffix}>{suffix}</div>}
       </div>
 
       {hasError && (

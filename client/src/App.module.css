@@ -1,3 +1,25 @@
+.viewSwitchBar {
+  position: fixed;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background-color: var(--bg-surface);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+}
+
+.viewLabel {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  font-weight: var(--font-weight-medium);
+  padding-left: var(--space-2);
+}
+
 .showcaseContainer {
   max-width: 960px;
   margin: 0 auto;

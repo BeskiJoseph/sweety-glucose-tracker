@@ -61,6 +61,18 @@
   box-shadow: var(--focus-ring);
 }
 
+.hasSuffix .input {
+  padding-right: 2.75rem;
+}
+
+.suffix {
+  position: absolute;
+  right: var(--space-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* States */
 .hasError .input {
   border-color: var(--color-error-primary);
