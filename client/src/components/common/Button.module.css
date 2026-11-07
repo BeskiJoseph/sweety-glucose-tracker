@@ -1,0 +1,113 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-family: var(--font-sans);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    opacity var(--transition-fast);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Sizes */
+.sm {
+  font-size: var(--font-size-xs);
+  padding: 0.375rem 0.75rem;
+  min-height: 2rem;
+}
+
+.md {
+  font-size: var(--font-size-sm);
+  padding: 0.5rem 1rem;
+  min-height: 2.5rem;
+}
+
+.lg {
+  font-size: var(--font-size-base);
+  padding: 0.75rem 1.25rem;
+  min-height: 3rem;
+}
+
+/* Variants */
+.primary {
+  background-color: var(--color-primary-600);
+  color: var(--color-primary-contrast);
+  border-color: var(--color-primary-600);
+}
+
+.primary:hover:not(:disabled) {
+  background-color: var(--color-primary-700);
+  border-color: var(--color-primary-700);
+}
+
+.secondary {
+  background-color: var(--color-secondary-100);
+  color: var(--color-secondary-700);
+  border-color: var(--color-secondary-200);
+}
+
+.secondary:hover:not(:disabled) {
+  background-color: var(--color-secondary-200);
+  border-color: var(--color-secondary-300);
+}
+
+.outline {
+  background-color: transparent;
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+}
+
+.outline:hover:not(:disabled) {
+  background-color: var(--bg-surface-muted);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.danger {
+  background-color: var(--color-error-primary);
+  color: var(--color-neutral-0);
+  border-color: var(--color-error-primary);
+}
+
+.danger:hover:not(:disabled) {
+  background-color: var(--color-error-hover);
+  border-color: var(--color-error-hover);
+}
+
+.danger:focus-visible {
+  box-shadow: var(--focus-ring-error);
+}
+
+.secondary:focus-visible {
+  box-shadow: var(--focus-ring-secondary);
+}
+
+/* States */
+.disabled,
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.loading {
+  cursor: wait;
+}
+
+.fullWidth {
+  width: 100%;
+}
