@@ -4,6 +4,8 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const { CLIENT_URL } = require('./config/env');
 const authRoutes = require('./routes/auth.routes');
+const readingRoutes = require('./routes/reading.routes');
+const reportRoutes = require('./routes/report.routes');
 const notFoundMiddleware = require('./middleware/notFound.middleware');
 const errorMiddleware = require('./middleware/error.middleware');
 
@@ -30,6 +32,10 @@ app.use(cookieParser());
 
 // Authentication routes
 app.use('/api/auth', authRoutes);
+
+// Glucose reading and reporting routes
+app.use('/api/readings', readingRoutes);
+app.use('/api/reports', reportRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
