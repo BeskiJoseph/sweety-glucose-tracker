@@ -1,0 +1,104 @@
+.card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: all 0.15s ease;
+}
+
+.card:hover {
+  border-color: var(--border-default);
+  box-shadow: var(--shadow-sm);
+}
+
+.leftGroup {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.slotBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: capitalize;
+}
+
+.slotMorning {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.slotAfterBreakfast {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.slotAfterLunch {
+  background-color: #e0e7ff;
+  color: #3730a3;
+}
+
+.slotAfterDinner {
+  background-color: #fae8ff;
+  color: #86198f;
+}
+
+.metaGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.dateText {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.slotName {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+
+.valueGroup {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.valueNumber {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.valueUnit {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.actionsGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .actionsGroup {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
