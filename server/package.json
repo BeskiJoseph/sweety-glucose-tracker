@@ -8,6 +8,7 @@
     "dev": "nodemon src/server.js",
     "migrate": "node database/migrate.js",
     "seed": "node database/seeds/seed.js",
+    "worker": "node src/workers/reminder.worker.js",
     "test": "node --test tests/**/*.test.js"
   },
   "keywords": [],
@@ -16,11 +17,13 @@
   "type": "commonjs",
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "bullmq": "^6.7.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^18.0.9",
     "express": "^5.3.0",
     "helmet": "^8.3.0",
+    "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.1"
   },

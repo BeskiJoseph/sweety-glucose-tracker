@@ -16,19 +16,30 @@ const { DATABASE_URL, DATABASE_SSL_CA, isProduction } = require('./env');
  * @returns {object|boolean} SSL configuration object or false
  */
 function getSslConfig(forceProduction = isProduction, customCa = DATABASE_SSL_CA) {
-  if (!forceProduction) {
-    return false;
+  // Production connections must ALWAYS verify TLS certificates.
+  // DATABASE_SSL=false cannot disable SSL in production.
+  if (forceProduction) {
+    const sslConfig = {
+      rejectUnauthorized: true
+    };
+    if (customCa) {
+      sslConfig.ca = customCa;
+    }
+    return sslConfig;
   }
 
-  const sslConfig = {
-    rejectUnauthorized: true
-  };
-
-  if (customCa) {
-    sslConfig.ca = customCa;
+  // Non-production (development/test): SSL is disabled by default unless explicitly requested via DATABASE_SSL=true
+  if (process.env.DATABASE_SSL === 'true') {
+    const sslConfig = {
+      rejectUnauthorized: true
+    };
+    if (customCa) {
+      sslConfig.ca = customCa;
+    }
+    return sslConfig;
   }
 
-  return sslConfig;
+  return false;
 }
 
 const pool = new Pool({

@@ -6,6 +6,8 @@ const app = require('../../src/app');
 const { pool, closePool } = require('../../src/config/db');
 const { runMigrations } = require('../../database/migrate');
 const { resetRateLimiter } = require('../../src/middleware/rateLimiter.middleware');
+const { closeRedis } = require('../../src/config/redis');
+const { closeQueue } = require('../../src/jobs/reminder.queue');
 
 let server;
 let baseUrl;
@@ -36,6 +38,8 @@ after(async () => {
     await pool.query('DELETE FROM users WHERE LOWER(email) LIKE $1', ['test_%@example.com']);
     await closePool();
   }
+  await closeQueue().catch(() => {});
+  await closeRedis().catch(() => {});
   if (server) {
     await new Promise((resolve) => server.close(resolve));
   }

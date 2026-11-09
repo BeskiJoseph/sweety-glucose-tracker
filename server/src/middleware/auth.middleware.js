@@ -28,9 +28,10 @@ function requireAuth(req, res, next) {
       return next(new AppError('Invalid authentication token payload.', 401));
     }
 
-    // Attach verified user ID strictly from the decoded cryptographic token
+    // Attach verified user strictly from the decoded cryptographic token
     req.user = {
-      id: decoded.userId
+      id: decoded.userId,
+      role: decoded.role || 'patient'
     };
 
     return next();

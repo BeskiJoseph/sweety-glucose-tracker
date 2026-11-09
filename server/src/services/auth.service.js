@@ -15,6 +15,7 @@ function sanitizeUser(user) {
     id: user.id,
     name: user.name,
     email: user.email,
+    role: user.role || 'patient',
     createdAt: user.created_at || user.createdAt
   };
 }
@@ -54,7 +55,7 @@ async function register(payload) {
   }
 
   // Generate JWT token
-  const token = signToken({ userId: newUser.id });
+  const token = signToken({ userId: newUser.id, role: newUser.role || 'patient' });
 
   return {
     user: sanitizeUser(newUser),
@@ -85,7 +86,7 @@ async function login(payload) {
   }
 
   // Generate JWT token
-  const token = signToken({ userId: user.id });
+  const token = signToken({ userId: user.id, role: user.role || 'patient' });
 
   return {
     user: sanitizeUser(user),
