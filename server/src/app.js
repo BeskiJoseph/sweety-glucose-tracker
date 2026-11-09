@@ -6,6 +6,7 @@ const { CLIENT_URL } = require('./config/env');
 const authRoutes = require('./routes/auth.routes');
 const readingRoutes = require('./routes/reading.routes');
 const reportRoutes = require('./routes/report.routes');
+const doctorRoutes = require('./routes/doctor.routes');
 const notFoundMiddleware = require('./middleware/notFound.middleware');
 const errorMiddleware = require('./middleware/error.middleware');
 
@@ -36,6 +37,7 @@ app.use('/api/auth', authRoutes);
 // Glucose reading and reporting routes
 app.use('/api/readings', readingRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/doctor', doctorRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

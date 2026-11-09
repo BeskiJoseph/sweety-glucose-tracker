@@ -1,0 +1,104 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sweety-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-root}
+      POSTGRES_DB: ${POSTGRES_DB:-sweety_db}
+    ports:
+      - "${POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-sweety_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sweety-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: sweety-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sweety-network
+
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: sweety-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-5001}:5000"
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:3000}
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-root}@postgres:5432/${POSTGRES_DB:-sweety_db}
+      JWT_SECRET: ${JWT_SECRET:-sweety_docker_super_secret_jwt_key_32chars_long}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      REDIS_URL: redis://redis:6379
+      REPORT_CACHE_TTL_SECONDS: ${REPORT_CACHE_TTL_SECONDS:-300}
+      REMINDER_SCHEDULE_CRON: ${REMINDER_SCHEDULE_CRON:-0 20 * * *}
+      REMINDER_TIMEZONE: ${REMINDER_TIMEZONE:-UTC}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sweety-network
+
+  worker:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: sweety-worker
+    restart: unless-stopped
+    command: ["npm", "run", "worker"]
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-root}@postgres:5432/${POSTGRES_DB:-sweety_db}
+      JWT_SECRET: ${JWT_SECRET:-sweety_docker_super_secret_jwt_key_32chars_long}
+      REDIS_URL: redis://redis:6379
+      REMINDER_SCHEDULE_CRON: ${REMINDER_SCHEDULE_CRON:-0 20 * * *}
+      REMINDER_TIMEZONE: ${REMINDER_TIMEZONE:-UTC}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sweety-network
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: sweety-client
+    restart: unless-stopped
+    ports:
+      - "${CLIENT_PORT:-3000}:80"
+    depends_on:
+      - api
+    networks:
+      - sweety-network
+
+networks:
+  sweety-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local

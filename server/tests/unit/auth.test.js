@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 const { hashPassword, comparePassword } = require('../../src/utils/password.util');
 const { getSslConfig } = require('../../src/config/db');
+const { getPreviousMonthRange } = require('../../src/utils/date.util');
 const {
   signToken,
   verifyToken,
@@ -72,6 +73,38 @@ describe('Unit Tests: Database SSL Configuration', () => {
     assert.equal(typeof ssl, 'object');
     assert.equal(ssl.rejectUnauthorized, true);
     assert.equal(ssl.ca, fakeCa);
+  });
+
+  it('should prevent DATABASE_SSL=false from disabling SSL in production', () => {
+    const originalEnv = process.env.DATABASE_SSL;
+    process.env.DATABASE_SSL = 'false';
+    try {
+      const ssl = getSslConfig(true, null);
+      assert.equal(typeof ssl, 'object');
+      assert.equal(ssl.rejectUnauthorized, true);
+    } finally {
+      if (originalEnv !== undefined) {
+        process.env.DATABASE_SSL = originalEnv;
+      } else {
+        delete process.env.DATABASE_SSL;
+      }
+    }
+  });
+
+  it('should allow enabling SSL in non-production when DATABASE_SSL=true', () => {
+    const originalEnv = process.env.DATABASE_SSL;
+    process.env.DATABASE_SSL = 'true';
+    try {
+      const ssl = getSslConfig(false, null);
+      assert.equal(typeof ssl, 'object');
+      assert.equal(ssl.rejectUnauthorized, true);
+    } finally {
+      if (originalEnv !== undefined) {
+        process.env.DATABASE_SSL = originalEnv;
+      } else {
+        delete process.env.DATABASE_SSL;
+      }
+    }
   });
 });
 
@@ -275,5 +308,43 @@ describe('Unit Tests: Auth Validator', () => {
     assert.throws(() => {
       validateLogin({ email: 'test@example.com' });
     }, /Password is required/);
+  });
+});
+
+describe('Unit Tests: Previous Month Date Range Calculator', () => {
+  it('should calculate December range of previous year when given January (year rollover)', () => {
+    const range = getPreviousMonthRange(2026, 1);
+    assert.deepEqual(range, {
+      month: '2025-12',
+      startDate: '2025-12-01',
+      endDate: '2025-12-31'
+    });
+  });
+
+  it('should calculate February leap-year range with 29 days when given March in a leap year', () => {
+    const range = getPreviousMonthRange(2024, 3);
+    assert.deepEqual(range, {
+      month: '2024-02',
+      startDate: '2024-02-01',
+      endDate: '2024-02-29'
+    });
+  });
+
+  it('should calculate February non-leap-year range with 28 days when given March in a standard year', () => {
+    const range = getPreviousMonthRange(2026, 3);
+    assert.deepEqual(range, {
+      month: '2026-02',
+      startDate: '2026-02-01',
+      endDate: '2026-02-28'
+    });
+  });
+
+  it('should calculate previous calendar month range in mid-year', () => {
+    const range = getPreviousMonthRange(2026, 8); // August -> July (31 days)
+    assert.deepEqual(range, {
+      month: '2026-07',
+      startDate: '2026-07-01',
+      endDate: '2026-07-31'
+    });
   });
 });

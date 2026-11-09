@@ -62,7 +62,8 @@ if (require.main === module) {
       await pool.end();
       process.exit(0);
     })
-    .catch(async () => {
+    .catch(async (err) => {
+      console.error('[Migrations] Fatal error in migrate.js:', err);
       await pool.end();
       process.exit(1);
     });

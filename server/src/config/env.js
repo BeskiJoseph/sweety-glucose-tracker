@@ -96,6 +96,25 @@ if (JWT_SECRET.trim().length < minSecretLength) {
 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
+// Redis configuration for report caching and BullMQ background reminders
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+
+// Validate REPORT_CACHE_TTL_SECONDS: must be a positive integer (> 0), default: 300
+let REPORT_CACHE_TTL_SECONDS = 300;
+const rawReportTtl = process.env.REPORT_CACHE_TTL_SECONDS;
+if (rawReportTtl !== undefined && rawReportTtl.trim() !== '') {
+  const trimmedTtl = rawReportTtl.trim();
+  const parsedTtl = parseInt(trimmedTtl, 10);
+  if (isNaN(parsedTtl) || String(parsedTtl) !== trimmedTtl || parsedTtl <= 0) {
+    throw new Error(
+      `Invalid environment configuration: REPORT_CACHE_TTL_SECONDS must be a positive integer (> 0), received "${rawReportTtl}"`
+    );
+  }
+  REPORT_CACHE_TTL_SECONDS = parsedTtl;
+}
+const REMINDER_SCHEDULE_CRON = process.env.REMINDER_SCHEDULE_CRON || '0 20 * * *';
+const REMINDER_TIMEZONE = process.env.REMINDER_TIMEZONE || 'UTC';
+
 module.exports = {
   NODE_ENV,
   PORT,
@@ -104,6 +123,10 @@ module.exports = {
   DATABASE_SSL_CA,
   JWT_SECRET,
   JWT_EXPIRES_IN,
+  REDIS_URL,
+  REPORT_CACHE_TTL_SECONDS,
+  REMINDER_SCHEDULE_CRON,
+  REMINDER_TIMEZONE,
   isProduction,
   isDevelopment,
   isTest

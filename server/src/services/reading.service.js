@@ -1,9 +1,11 @@
 const readingRepository = require('../repositories/reading.repository');
+const cacheService = require('./cache.service');
 const AppError = require('../errors/AppError');
 const {
   MAX_DAILY_READINGS,
   getDuplicateSlotErrorMessage
 } = require('../constants/reading.constants');
+const { getPreviousMonthRange } = require('../utils/date.util');
 
 /**
  * Format summary statistics object with null defaults for empty data.
@@ -21,31 +23,6 @@ function formatStats(stats = {}) {
   };
 }
 
-/**
- * Compute previous calendar month date boundaries.
- *
- * @param {number} year - Selected year
- * @param {number} month - Selected month (1-12)
- * @returns {object} { month: 'YYYY-MM', startDate: 'YYYY-MM-01', endDate: 'YYYY-MM-DD' }
- */
-function getPreviousMonthRange(year, month) {
-  let prevYear = year;
-  let prevMonth = month - 1;
-  if (prevMonth === 0) {
-    prevMonth = 12;
-    prevYear = year - 1;
-  }
-  const prevMonthStr = String(prevMonth).padStart(2, '0');
-  const startDate = `${prevYear}-${prevMonthStr}-01`;
-  const lastDay = new Date(Date.UTC(prevYear, prevMonth, 0)).getUTCDate();
-  const endDate = `${prevYear}-${prevMonthStr}-${String(lastDay).padStart(2, '0')}`;
-
-  return {
-    month: `${prevYear}-${prevMonthStr}`,
-    startDate,
-    endDate
-  };
-}
 
 /**
  * Create a new blood glucose reading with strict business rules:
@@ -60,7 +37,14 @@ function getPreviousMonthRange(year, month) {
  * @returns {Promise<object>} Created reading row
  */
 async function createReading({ userId, readingDate, timeSlot, value }) {
-  // Check if slot is already logged for this user on this date
+  // Check if user already reached the maximum 4 readings for this date
+  // (Ensures attempting a 5th reading yields "You can add only 4 readings per day.")
+  const dayCount = await readingRepository.countReadingsByDate(userId, readingDate);
+  if (dayCount >= MAX_DAILY_READINGS) {
+    throw new AppError('You can add only 4 readings per day.', 400);
+  }
+
+  // Check if slot is already logged for this user on this date (before reaching 4 readings)
   const existingSlot = await readingRepository.findReadingByDateAndSlot(
     userId,
     readingDate,
@@ -70,19 +54,15 @@ async function createReading({ userId, readingDate, timeSlot, value }) {
     throw new AppError(getDuplicateSlotErrorMessage(timeSlot), 409);
   }
 
-  // Check if user already reached the maximum 4 readings for this date
-  const dayCount = await readingRepository.countReadingsByDate(userId, readingDate);
-  if (dayCount >= MAX_DAILY_READINGS) {
-    throw new AppError('You can add only 4 readings per day.', 400);
-  }
-
   try {
-    return await readingRepository.createReading({
+    const reading = await readingRepository.createReading({
       userId,
       readingDate,
       timeSlot,
       value
     });
+    await cacheService.invalidateUserReports(userId).catch(() => {});
+    return reading;
   } catch (err) {
     // Graceful handling if concurrent request hit unique constraint
     if (err.code === '23505') {
@@ -186,6 +166,7 @@ async function updateReading({ id, userId, readingDate, timeSlot, value }) {
       timeSlot,
       value
     });
+    await cacheService.invalidateUserReports(userId).catch(() => {});
     return updated;
   } catch (err) {
     if (err.code === '23505') {
@@ -210,6 +191,7 @@ async function deleteReading(id, userId) {
   if (!deleted) {
     throw new AppError('Reading not found', 404);
   }
+  await cacheService.invalidateUserReports(userId).catch(() => {});
 }
 
 /**
@@ -221,6 +203,12 @@ async function deleteReading(id, userId) {
  * @returns {Promise<object>} { daily, monthToDate, monthly }
  */
 async function getReports({ userId, date }) {
+  // Check Redis cache first
+  const cachedReport = await cacheService.getCachedReport(userId, date);
+  if (cachedReport) {
+    return cachedReport;
+  }
+
   const [yearStr, monthStr] = date.split('-');
   const year = Number(yearStr);
   const month = Number(monthStr);
@@ -239,7 +227,7 @@ async function getReports({ userId, date }) {
   const monthToDateStats = formatStats(mtdStatsRaw);
   const monthlyStats = formatStats(monthlyStatsRaw);
 
-  return {
+  const reportResult = {
     daily: {
       date,
       ...dailyStats,
@@ -257,6 +245,10 @@ async function getReports({ userId, date }) {
       ...monthlyStats
     }
   };
+
+  await cacheService.setCachedReport(userId, date, reportResult).catch(() => {});
+
+  return reportResult;
 }
 
 /**

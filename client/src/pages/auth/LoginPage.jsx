@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Card, Input, Button, Alert } from '../../components/common';
+import { useAuth } from '../../context';
 import styles from './LoginPage.module.css';
 
 /**
@@ -74,17 +75,18 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * Professional healthcare Login Page for Sweety Blood Glucose Tracker.
  *
  * @param {object} props
- * @param {Function} [props.onNavigateToSignup] - Optional navigation handler
- * @param {Function} [props.onForgotPassword] - Optional forgot password handler
+ * @param {Function} [props.onNavigateToSignup] - Navigation handler to switch to register
  */
-function LoginPage({ onNavigateToSignup, onForgotPassword }) {
+export default function LoginPage({ onNavigateToSignup }) {
+  const { login } = useAuth();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [statusNotice, setStatusNotice] = useState(null);
+  const [serverError, setServerError] = useState(null);
 
   const validate = () => {
     const newErrors = {};
@@ -93,7 +95,7 @@ function LoginPage({ onNavigateToSignup, onForgotPassword }) {
     if (!trimmedEmail) {
       newErrors.email = 'Email is required';
     } else if (!EMAIL_REGEX.test(trimmedEmail)) {
-      newErrors.email = 'Please enter a valid email address (e.g. name@example.com)';
+      newErrors.email = 'Please enter a valid email address';
     }
 
     if (!password) {
@@ -104,9 +106,9 @@ function LoginPage({ onNavigateToSignup, onForgotPassword }) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setStatusNotice(null);
+    setServerError(null);
 
     const isValid = validate();
     if (!isValid) {
@@ -114,42 +116,16 @@ function LoginPage({ onNavigateToSignup, onForgotPassword }) {
     }
 
     setIsSubmitting(true);
-
-    // Demonstrate the button loading state; no backend credentials sent
-    setTimeout(() => {
+    try {
+      await login({
+        email: email.trim(),
+        password
+      });
+      // Successful login automatically populates user in AuthContext
+    } catch (err) {
+      setServerError(err.message || 'Invalid email or password');
+    } finally {
       setIsSubmitting(false);
-      setStatusNotice({
-        variant: 'info',
-        title: 'Client validation passed',
-        message:
-          'Backend authentication will be integrated in the upcoming task. No network requests or mock logins were executed.',
-      });
-    }, 700);
-  };
-
-  const handleForgotPasswordClick = (e) => {
-    e.preventDefault();
-    if (onForgotPassword) {
-      onForgotPassword();
-    } else {
-      setStatusNotice({
-        variant: 'info',
-        title: 'Password recovery',
-        message: 'Password reset flow will be enabled with authentication services.',
-      });
-    }
-  };
-
-  const handleSignupClick = (e) => {
-    e.preventDefault();
-    if (onNavigateToSignup) {
-      onNavigateToSignup();
-    } else {
-      setStatusNotice({
-        variant: 'info',
-        title: 'Account registration',
-        message: 'The registration page will be connected in subsequent navigation setup.',
-      });
     }
   };
 
@@ -169,14 +145,14 @@ function LoginPage({ onNavigateToSignup, onForgotPassword }) {
 
         <Card elevation="raised" padding="lg">
           <form className={styles.form} onSubmit={handleSubmit} noValidate>
-            {statusNotice && (
+            {serverError && (
               <div className={styles.notice}>
                 <Alert
-                  variant={statusNotice.variant}
-                  title={statusNotice.title}
-                  onClose={() => setStatusNotice(null)}
+                  variant="error"
+                  title="Sign In Failed"
+                  onClose={() => setServerError(null)}
                 >
-                  {statusNotice.message}
+                  {serverError}
                 </Alert>
               </div>
             )}
@@ -233,7 +209,7 @@ function LoginPage({ onNavigateToSignup, onForgotPassword }) {
               }
             />
 
-            {/* Remember Me & Forgot Password */}
+            {/* Remember Me */}
             <div className={styles.formOptions}>
               <label htmlFor="login-remember" className={styles.checkboxLabel}>
                 <input
@@ -247,14 +223,6 @@ function LoginPage({ onNavigateToSignup, onForgotPassword }) {
                 />
                 <span>Remember this device</span>
               </label>
-
-              <a
-                href="#forgot-password"
-                onClick={handleForgotPasswordClick}
-                className={styles.forgotLink}
-              >
-                Forgot password?
-              </a>
             </div>
 
             {/* Login Action Button */}
@@ -272,18 +240,16 @@ function LoginPage({ onNavigateToSignup, onForgotPassword }) {
           {/* Link to Signup */}
           <p className={styles.footerText}>
             Don&apos;t have an account?{' '}
-            <a
-              href="#signup"
-              onClick={handleSignupClick}
+            <button
+              type="button"
+              onClick={onNavigateToSignup}
               className={styles.signupLink}
             >
               Create account
-            </a>
+            </button>
           </p>
         </Card>
       </div>
     </div>
   );
 }
-
-export default LoginPage;

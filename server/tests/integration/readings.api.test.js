@@ -7,6 +7,8 @@ const { pool, closePool } = require('../../src/config/db');
 const { runMigrations } = require('../../database/migrate');
 const { signToken } = require('../../src/utils/token.util');
 const { AUTH_COOKIE_NAME } = require('../../src/constants/auth.constants');
+const { closeRedis } = require('../../src/config/redis');
+const { closeQueue } = require('../../src/jobs/reminder.queue');
 
 let server;
 let baseUrl;
@@ -60,6 +62,8 @@ after(async () => {
     }
     await closePool();
   }
+  await closeQueue().catch(() => {});
+  await closeRedis().catch(() => {});
   if (server) {
     await new Promise((resolve) => server.close(resolve));
   }
