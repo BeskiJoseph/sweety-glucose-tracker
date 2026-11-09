@@ -1,71 +1,100 @@
 # Sweety — Blood Glucose Tracker
 
-A secure, full-stack metabolic wellness and blood glucose tracking web application built with **React + Vite**, **Node.js + Express**, and **PostgreSQL**.
+A secure, full-stack blood glucose tracking application built with **React + Vite**, **Node.js + Express**, and **PostgreSQL**.
 
-Designed and engineered for the **Kenpath Junior Full Stack Developer – JavaScript & AI Assignment**. Sweety enables patients to record daily glucose readings across four structured daily slots, view detailed daily/MTD/monthly analytics, monitor monthly glycemic trends with interactive charts, and receive background reminder alerts. It also offers a dedicated healthcare provider portal for doctors to review assigned patient metrics.
+Designed and engineered for the **Kenpath Junior Full Stack Developer – JavaScript & AI Assignment**, Sweety enables patients to record daily glucose readings across four structured daily slots, view daily/month-to-date/previous-month analytics, monitor monthly trends with interactive charts, and receive background reminder alerts. It also includes a healthcare provider portal where doctors can review reports for their assigned patients.
 
 ---
 
 ## 1. Project Overview
 
-Managing diabetes and metabolic health requires consistent tracking, strict data validation, and meaningful clinical insights. Sweety provides:
-- Seamless and secure user registration and session management via HTTP-only JWT cookies.
-- Strict clinical validation rules enforcing blood glucose boundaries (`40` to `600 mg/dL`) and calendar day constraints (maximum 4 readings per day, exactly one per slot).
-- Comprehensive statistical reporting covering daily, month-to-date (MTD), and previous-month metrics.
-- High-performance caching using **Redis** with automated cache invalidation upon any reading mutation.
-- Asynchronous background worker powered by **BullMQ** to process and log scheduled daily meal-logging reminders.
-- Role-based authorization isolating patient data while granting verified doctors access only to their assigned patients.
-- Fully containerized multi-container orchestration via **Docker Compose** featuring persistent volumes and health checks.
+Managing blood glucose requires consistent tracking, clear validation, and useful summaries. Sweety provides:
+
+- Secure registration and session management using HTTP-only JWT cookies.
+- Glucose validation between `40` and `600 mg/dL`, with a maximum of four readings per calendar day and one reading per slot.
+- Daily, month-to-date (MTD), and previous-calendar-month reports.
+- Redis report caching with targeted invalidation when readings are changed.
+- A BullMQ background worker that schedules and records daily meal-logging reminders.
+- Role-based access that isolates patient data and allows doctors to view only their assigned patients.
+- A Docker Compose setup for the frontend, API, PostgreSQL, Redis, and reminder worker.
 
 ---
 
 ## 2. Key Features
 
 ### 2.1 Core Assignment Features
-- **Authentication & Security:**
-  - Secure user registration and login with bcrypt password hashing (12 salt rounds).
-  - Cryptographically signed JWT tokens stored strictly in HTTP-only, secure, `SameSite=lax/strict` cookies (zero token storage in `localStorage` or `sessionStorage`).
-  - Brute-force rate limiting on authentication endpoints with automated memory cleanup.
-  - SQL injection protection via parameterized queries and OWASP-recommended HTTP security headers via Helmet.
-- **Glucose Readings CRUD:**
-  - Full Create, Read, Update, and Delete operations for glucose records.
-  - Allowed time slots: `morning` (fasting), `after_breakfast`, `after_lunch`, `after_dinner`.
-  - Strict user ownership validation in SQL queries ensuring complete data isolation.
-- **Exact Validation Messages:**
-  - Missing value: `"Please enter a glucose value."`
-  - Out of bounds or non-integer: `"Value must be between 40 and 600 mg/dl."`
-  - Duplicate slot: Dynamic message matching grammar, e.g. `"You already have an After lunch reading for this date."` or `"You already have a Morning reading for this date."`
-  - Exceeding daily limit: `"You can add only 4 readings per day."`
-  - Future date: `"Date cannot be in the future."`
-- **Statistical Reports:**
-  - Daily report: Selected date, highest reading, lowest reading, average rounded to one decimal place, count, and individual readings by slot.
-  - Month-to-date (MTD) report: First calendar day of the selected month through the selected date.
-  - Previous-month report: Full preceding calendar month with accurate December-to-January and leap-year boundaries.
+
+**Authentication and security**
+
+- User registration and login with bcrypt password hashing (12 salt rounds).
+- JWT sessions stored in HTTP-only cookies; tokens are not stored in `localStorage` or `sessionStorage`.
+- Rate limiting on authentication endpoints.
+- Parameterized SQL queries to protect against SQL injection.
+- HTTP security headers configured with Helmet.
+
+**Glucose readings CRUD**
+
+- Create, read, update, and delete glucose readings.
+- Supported daily slots:
+  - `morning` (fasting)
+  - `after_breakfast`
+  - `after_lunch`
+  - `after_dinner`
+- Reading ownership is enforced in database queries so users can access only their own readings.
+
+**Validation messages**
+
+- Missing value: `Please enter a glucose value.`
+- Out-of-range or non-integer value: `Value must be between 40 and 600 mg/dl.`
+- Duplicate slot: a message such as `You already have an After lunch reading for this date.`
+- More than four readings per day: `You can add only 4 readings per day.`
+- Future date: `Date cannot be in the future.`
+
+**Statistical reports**
+
+- **Daily:** selected date, highest reading, lowest reading, average to one decimal place, reading count, and individual readings by slot.
+- **Month-to-date:** from the first calendar day of the selected month through the selected date.
+- **Previous month:** the complete preceding calendar month, including year-boundary and leap-year handling.
 
 ### 2.2 Bonus Features Implemented
-- **Bonus 1 — Backend & Frontend Pagination:**
-  - `GET /api/readings?page=1&limit=20` with user-isolated SQL `LIMIT` and `OFFSET`.
-  - Responsive pagination controls displaying page numbers, item counts, and disabled boundary buttons.
-- **Bonus 2 — Recharts Monthly Trend Line Chart:**
-  - Dynamic, responsive monthly glucose trend visualization powered by Recharts.
-  - Interactive tooltips displaying exact timestamp, date, slot label, and glucose level in mg/dL.
-- **Bonus 3 — Docker & Docker Compose Orchestration:**
-  - Production-ready `docker-compose.yml` orchestrating PostgreSQL, Redis, Express API, React frontend (Nginx reverse proxy), and BullMQ worker.
-  - Named persistent volume for PostgreSQL and built-in service health checks.
-- **Bonus 4 — Frontend Test Suite:**
-  - 17 comprehensive unit and integration tests using Vitest and React Testing Library testing form validations, auth workflows, route protection, reading lists, reports, and pagination.
-- **Bonus 5 — Redis Report Caching:**
-  - High-performance caching for report endpoints using `ioredis`.
-  - User-keyed cache tracking sets enabling instant targeted invalidation upon reading creation, update, or deletion without expensive `KEYS *` scans.
-  - Graceful fallback: If Redis is offline, the API falls back to direct PostgreSQL queries without interruption.
-- **Bonus 6 — BullMQ Daily Reminder Worker:**
-  - Standalone worker process (`npm run worker`) connected to Redis and BullMQ.
-  - Configurable cron schedule (`0 20 * * *`) identifying patient users with fewer than 4 readings logged today.
-  - Idempotent reminder logging in `reminder_logs` database table preventing duplicate notifications on the same date.
-- **Bonus 7 — Healthcare Provider (Doctor) Portal:**
-  - Multi-role schema (`patient` and `doctor`) with `doctor_patient_assignments` table.
-  - Strict authorization middleware restricting `/api/doctor/*` endpoints to doctor accounts.
-  - Doctor dashboard enabling physicians to select assigned patients and inspect their glycemic reports.
+
+**Bonus 1 — Backend and frontend pagination**
+
+- `GET /api/readings?page=1&limit=20` uses user-scoped SQL `LIMIT` and `OFFSET`.
+- Responsive pagination controls show page numbers and item counts and disable unavailable navigation.
+
+**Bonus 2 — Recharts monthly trend chart**
+
+- Responsive monthly glucose trend chart built with Recharts.
+- Interactive tooltips show the date, time slot, and glucose level in mg/dL.
+
+**Bonus 3 — Docker and Docker Compose**
+
+- `docker-compose.yml` orchestrates PostgreSQL, Redis, the Express API, the React frontend served by Nginx, and the BullMQ worker.
+- PostgreSQL data is stored in a named volume.
+- Services include health checks for PostgreSQL and Redis.
+
+**Bonus 4 — Frontend tests**
+
+- Vitest and React Testing Library tests cover form validation, authentication workflows, route protection, reading lists, reports, and pagination.
+
+**Bonus 5 — Redis report caching**
+
+- Report endpoints use Redis through `ioredis`.
+- User-keyed cache tracking sets support targeted invalidation after reading creation, updates, and deletion, without broad `KEYS *` scans.
+- When Redis is unavailable, report requests fall back to PostgreSQL.
+
+**Bonus 6 — BullMQ daily reminder worker**
+
+- A separate worker process runs with `npm run worker`.
+- The default schedule is `0 20 * * *` and checks for patient users with fewer than four readings logged that day.
+- Reminder entries are recorded idempotently in the `reminder_logs` table to avoid duplicate records for the same date.
+
+**Bonus 7 — Healthcare provider (doctor) portal**
+
+- Patient and doctor roles are represented in the database, with a `doctor_patient_assignments` table.
+- Doctor endpoints are protected by role and assignment checks.
+- The doctor dashboard allows a doctor to select assigned patients and review their reports.
 
 ---
 
@@ -73,134 +102,149 @@ Managing diabetes and metabolic health requires consistent tracking, strict data
 
 | Layer | Technologies |
 |---|---|
-| **Frontend** | React 19, Vite, Recharts, CSS Modules, Lucide-style SVG icons |
-| **Backend** | Node.js (v20+), Express 5, `pg` (node-postgres), bcrypt, jsonwebtoken, cookie-parser, cors, helmet |
-| **Database** | PostgreSQL 16 (Relational tables, foreign keys, unique composite indexes, check constraints) |
-| **Caching & Queues**| Redis 7, `ioredis`, `bullmq` |
-| **Testing** | Node.js Native Test Runner (`node:test`, `node:assert/strict`), Vitest, React Testing Library, jsdom |
-| **DevOps / Containers**| Docker, Docker Compose, Nginx Alpine, Multi-stage builds |
+| Frontend | React 19, Vite, Recharts, CSS Modules, SVG icons |
+| Backend | Node.js 20+, Express 5, `pg`, bcrypt, jsonwebtoken, cookie-parser, cors, Helmet |
+| Database | PostgreSQL 16, relational tables, foreign keys, unique indexes, check constraints |
+| Caching and queues | Redis 7, `ioredis`, BullMQ |
+| Testing | Node.js Native Test Runner (`node:test`, `node:assert/strict`), Vitest, React Testing Library, jsdom |
+| DevOps and containers | Docker, Docker Compose, Nginx Alpine, multi-stage builds |
 
 ---
 
 ## 4. Architecture Overview
 
+```text
+                         ┌────────────────────────┐
+                         │     React Frontend     │
+                         │   (Nginx / Vite Dev)   │
+                         └───────────┬────────────┘
+                                     │ HTTP + JWT cookie
+                                     ▼
+                         ┌────────────────────────┐
+                         │     Express REST API   │
+                         │       Port 5000        │
+                         └─────┬───────────┬──────┘
+                               │           │
+                 SQL queries   │           │ Cache lookup / invalidation
+                               │           ▼
+                               │     ┌─────────────┐
+                               │     │ Redis Store │
+                               │     └──────▲──────┘
+                               ▼            │ BullMQ jobs
+                         ┌───────────┐      │
+                         │ PostgreSQL│      ▼
+                         │ Database  │◄── BullMQ Worker
+                         └───────────┘
 ```
-                          ┌────────────────────────┐
-                          │     React Frontend     │
-                          │   (Nginx / Vite Dev)   │
-                          └───────────┬────────────┘
-                                      │ HTTP + Credentials (JWT Cookie)
-                                      ▼
-                          ┌────────────────────────┐
-                          │    Express REST API    │
-                          │   (Port 5000 / 5001)   │
-                          └─────┬───────────┬──────┘
-                                │           │
-              SQL (node-postgres)           │ Cache Lookup / Invalidation
-                                │           ▼
-                                │    ┌─────────────┐
-                                │    │ Redis Store │
-                                │    └──────▲──────┘
-                                ▼           │ Job Queue
-                          ┌───────────┐     │
-                          │PostgreSQL │     ▼
-                          │ Database  │◄────┴──────┐
-                          └───────────┘     │ BullMQ Worker │
-                                            │ Process       │
-                                            └───────────────┘
-```
+
+In Docker, Nginx serves the frontend and forwards `/api/` requests to the API service over the Compose network. The API and worker connect to PostgreSQL and Redis using their Docker Compose service names.
 
 ---
 
 ## 5. Project Folder Structure
 
-```
+```text
 sweety-glucose-tracker/
-├── .env.example                       # Root environment example for Docker Compose
-├── docker-compose.yml                 # Multi-container orchestration specification
-├── README.md                          # Comprehensive project documentation
+├── .env.example                  # Docker Compose environment template
+├── docker-compose.yml            # Multi-container orchestration
+├── README.md
 ├── docs/
-│   └── screenshots/                   # Real application screenshots
+│   └── screenshots/
 │       ├── 01_login_page.png
 │       ├── 02_register_page.png
 │       ├── 03_dashboard_tracker.png
 │       ├── 04_reports_analytics.png
 │       └── 05_doctor_portal.png
-├── client/                            # React + Vite frontend application
+├── client/                       # React + Vite frontend
 │   ├── .dockerignore
-│   ├── Dockerfile                     # Multi-stage production Nginx container
-│   ├── nginx.conf                     # Nginx configuration with /api reverse proxy
+│   ├── Dockerfile
+│   ├── nginx.conf
 │   ├── package.json
-│   ├── vite.config.js                 # Vite configuration with local API proxy
 │   └── src/
 │       ├── components/
-│       │   ├── common/                # Reusable UI library (Button, Card, Input, Alert, etc.)
-│       │   ├── layout/                # Navigation bar and header
-│       │   ├── readings/              # ReadingForm, ReadingItem, Pagination
-│       │   └── reports/               # ReportSummaryCard, TrendChart (Recharts)
-│       ├── context/                   # AuthContext and useAuth session provider
+│       │   ├── common/
+│       │   ├── layout/
+│       │   ├── readings/
+│       │   └── reports/
+│       ├── context/
 │       ├── pages/
-│       │   ├── auth/                  # LoginPage, RegisterPage
-│       │   ├── dashboard/             # Patient Dashboard (Log reading & history)
-│       │   ├── doctor/                # Doctor Portal (Assigned patient reports)
-│       │   └── reports/               # Statistical Reports & Analytics
-│       ├── services/api.js            # Centralized fetch API client with credentials
-│       └── __tests__/                 # Vitest + RTL component & integration test suite
-└── server/                            # Node.js + Express backend application
+│       │   ├── auth/
+│       │   ├── dashboard/
+│       │   ├── doctor/
+│       │   └── reports/
+│       ├── services/api.js
+│       └── __tests__/
+└── server/                       # Node.js + Express backend
     ├── .dockerignore
-    ├── Dockerfile                     # Alpine Node.js production image
+    ├── .env.example              # Local backend environment template
+    ├── Dockerfile
     ├── package.json
-    ├── .env                           # Server environment variables
-    ├── .env.example                   # Server environment template
     ├── database/
-    │   ├── migrate.js                 # Transactional migration runner
-    │   ├── migrations/                # Numbered SQL migration files
+    │   ├── migrate.js
+    │   ├── migrations/
     │   │   ├── 001_create_users_table.sql
     │   │   ├── 002_create_glucose_readings_table.sql
     │   │   ├── 003_add_user_roles_and_doctor_assignments.sql
     │   │   └── 004_create_reminder_logs_table.sql
-    │   └── seeds/
-    │       └── seed.js                # Idempotent demo patient, doctor, and readings seed
+    │   └── seeds/seed.js
     ├── src/
-    │   ├── app.js                     # Express app setup, security middleware & routes
-    │   ├── server.js                  # HTTP server listener and graceful shutdown
-    │   ├── config/                    # Environment, PostgreSQL pool, Redis client
-    │   ├── constants/                 # Auth, reading, and time slot constants
-    │   ├── controllers/               # Auth, reading, and doctor route controllers
-    │   ├── errors/AppError.js         # Standardized application operational errors
-    │   ├── jobs/                      # BullMQ queue definition and job scheduler
-    │   ├── middleware/                # Auth, doctor role, rate limiting, error handler
-    │   ├── repositories/              # Parameterized SQL database access layer
-    │   ├── routes/                    # API route definitions
-    │   ├── services/                  # Business logic (CRUD, aggregations, caching)
-    │   ├── utils/                     # Password hashing and JWT token utilities
-    │   ├── validators/                # Strict schema validation and error messages
-    │   └── workers/                   # Background reminder worker process
-    └── tests/                         # Node.js native test runner integration suite
+    │   ├── app.js
+    │   ├── server.js
+    │   ├── config/                # Environment, PostgreSQL, Redis
+    │   ├── constants/
+    │   ├── controllers/
+    │   ├── errors/
+    │   ├── jobs/
+    │   ├── middleware/
+    │   ├── repositories/
+    │   ├── routes/
+    │   ├── services/
+    │   ├── utils/
+    │   ├── validators/
+    │   └── workers/
+    └── tests/
         ├── integration/
-        │   ├── auth.api.test.js
-        │   ├── glucose_readings.schema.test.js
-        │   ├── platform.bonus.test.js
-        │   └── readings.api.test.js
         └── unit/
-            └── auth.test.js
 ```
+
+Local `.env` files are created from the example templates and should not be committed.
 
 ---
 
 ## 6. Prerequisites
 
-To run Sweety locally, ensure you have:
-- **Node.js**: `v20.0.0` or higher (Node 20+ required for native test runner and crypto support)
-- **PostgreSQL**: `v14` or higher (running locally on port 5432)
-- **Redis** *(optional for local development, fallback included)*: `v7+` (running on port 6379)
-- **Docker & Docker Compose** *(for containerized deployment)*: Docker Desktop `v24+`
+### For local development
+
+- Node.js `20.0.0` or higher.
+- PostgreSQL `14` or higher, running locally on port `5432`.
+- Redis `7` or higher on port `6379` for caching and the reminder worker. The API can fall back to PostgreSQL for report requests when Redis is unavailable; the worker itself requires Redis.
+
+### For Docker
+
+- Docker Desktop with Docker Compose support (Docker Desktop `24+` recommended).
+- No separately installed PostgreSQL or Redis is required when using the Docker Compose setup.
 
 ---
 
-## 7. Environment Variables
+## 7. Environment Configuration
 
-Create `server/.env` based on `server/.env.example`:
+Sweety uses **two different environment templates** for two different run modes. Do not mix them.
+
+### 7.1 Local development: `server/.env`
+
+Create the backend environment file:
+
+```bash
+cp server/.env.example server/.env
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item server/.env.example server/.env
+```
+
+The local backend template uses host-based connection addresses because the API runs directly on your computer. Check that the values match your local PostgreSQL and Redis installations:
 
 ```ini
 NODE_ENV=development
@@ -208,7 +252,7 @@ PORT=5000
 CLIENT_URL=http://localhost:5173
 DATABASE_URL=postgres://postgres:root@localhost:5432/sweety_db
 DATABASE_SSL=false
-JWT_SECRET=sweety_super_secret_jwt_key_dev_mode_12345
+JWT_SECRET=replace-with-a-local-development-secret
 JWT_EXPIRES_IN=7d
 REDIS_URL=redis://127.0.0.1:6379
 REPORT_CACHE_TTL_SECONDS=300
@@ -216,193 +260,373 @@ REMINDER_SCHEDULE_CRON=0 20 * * *
 REMINDER_TIMEZONE=UTC
 ```
 
+The values above are illustrative local settings. Update the PostgreSQL username/password and database URL to match your own local setup. Use a private development secret; do not reuse it in a deployed environment.
+
+### 7.2 Docker Compose: root `.env`
+
+Create the root environment file from the Docker template:
+
+```bash
+cp .env.example .env
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Edit the root `.env` before starting Docker. The supplied root template defines these variables:
+
+| Variable | Purpose | Default in the example |
+|---|---|---:|
+| `CLIENT_PORT` | Host port for the Nginx frontend | `3000` |
+| `API_PORT` | Host port for direct API access | `5001` |
+| `POSTGRES_PORT` | Host port mapped to PostgreSQL | `5434` |
+| `REDIS_PORT` | Host port mapped to Redis | `6380` |
+| `POSTGRES_USER` | PostgreSQL username | `postgres` |
+| `POSTGRES_PASSWORD` | PostgreSQL password | `root` |
+| `POSTGRES_DB` | PostgreSQL database name | `sweety_db` |
+| `JWT_SECRET` | JWT signing secret | Example placeholder; replace it |
+| `JWT_EXPIRES_IN` | JWT lifetime | `7d` |
+| `REPORT_CACHE_TTL_SECONDS` | Report cache lifetime | `300` |
+| `REMINDER_SCHEDULE_CRON` | Reminder schedule | `0 20 * * *` |
+| `REMINDER_TIMEZONE` | Timezone used for reminder scheduling | `UTC` |
+| `CLIENT_URL` | Optional API client-origin override; defaults to `http://localhost:3000` in Compose | Not set in the root example |
+
+**Important: local and Docker connection addresses are different.**
+
+| Connection | Local development (`server/.env`) | Inside Docker containers |
+|---|---|---|
+| PostgreSQL | `localhost:5432` | `postgres:5432` |
+| Redis | `localhost:6379` | `redis:6379` |
+| API | `localhost:5000` | `api:5000` from other containers |
+| Frontend | `localhost:5173` | Nginx listens on container port `80` |
+
+Docker Compose constructs the API's `DATABASE_URL` using the `postgres` service name and configures `REDIS_URL` as `redis://redis:6379`. **Do not change these container connection hosts to `localhost`.** Inside a container, `localhost` refers to that same container, not another service.
+
+The root `.env` is read by Docker Compose for variable substitution. The `server/.env` file is for running the backend directly on your machine; Compose supplies the API and worker environment variables in `docker-compose.yml`.
+
+The Compose configuration runs its API and worker containers with `NODE_ENV=development` for the local containerized setup, so the bundled PostgreSQL connection uses the non-TLS local configuration. For a real deployment, use a managed database with TLS enabled and verified, strong secrets, and a production-specific deployment configuration. Never publish `.env` files or real credentials.
+
 ---
 
-## 8. Database Setup, Migrations & Seeding
+## 8. Database Setup, Migrations, and Seeding (Local Development)
 
-### 8.1 Initialize Database
-Ensure PostgreSQL is running and create the `sweety_db` database:
+When running the API outside Docker, make sure PostgreSQL is running and create the database if it does not already exist:
+
 ```sql
 CREATE DATABASE sweety_db;
 ```
 
-### 8.2 Run Migrations
-Sweety uses a lightweight SQL migration runner that tracks executed files in the `_migrations` table:
+Run migrations:
+
 ```bash
 npm --prefix server run migrate
 ```
 
-### 8.3 Run Idempotent Seed
-Populate demo patient and doctor accounts, clinical readings across 6 months, and doctor-patient assignments:
+Seed the demo patient, doctor, sample readings, and doctor-patient assignment:
+
 ```bash
 npm --prefix server run seed
 ```
+
+The migration runner tracks applied migrations in the `_migrations` table. The seed script is designed to be idempotent.
+
+**Docker note:** the API container's startup command runs migrations and the seed script before starting the API. You do not need to run those two commands manually for a fresh Docker Compose startup.
 
 ---
 
 ## 9. Running Locally
 
-### 9.1 Start Express Backend
+First install dependencies:
+
+```bash
+npm ci --prefix server
+npm ci --prefix client
+```
+
+Make sure your local PostgreSQL and Redis services are running, create `sweety_db`, and complete the migration and seed steps in [Section 8](#8-database-setup-migrations-and-seeding-local-development).
+
+Start the Express backend:
+
 ```bash
 # Terminal 1
 cd server
 npm start
-# Server listens on http://localhost:5000
+# API listens at http://localhost:5000
 ```
 
-### 9.2 Start Background Reminder Worker (Optional)
+Start the reminder worker (optional; Redis must be running):
+
 ```bash
 # Terminal 2
 cd server
 npm run worker
-# BullMQ worker listens for scheduled daily reminder jobs
 ```
 
-### 9.3 Start React Vite Frontend
+Start the Vite frontend:
+
 ```bash
 # Terminal 3
 cd client
 npm run dev
-# Frontend accessible at http://localhost:5173
+# Frontend: http://localhost:5173
 ```
+
+The Vite development server proxies `/api` requests to `http://localhost:5000`.
 
 ---
 
-## 10. Running with Docker Compose (Bonus 3)
+## 10. Running with Docker Compose
 
-The application includes a fully automated Docker Compose setup with zero external dependencies required:
+Docker Compose starts five services: PostgreSQL, Redis, the Express API, the Nginx frontend, and the BullMQ worker.
+
+### 10.1 Configure and start
+
+From the repository root, create and edit `.env` as described in [Section 7.2](#72-docker-compose-root-env). Then validate the Compose configuration and build/start the services:
 
 ```bash
-# 1. Build and start all 5 services in detached mode
+# Validate the resolved Compose configuration
+docker compose config
+
+# Build images and start all services in the background
 docker compose up -d --build
 
-# 2. View running service status
+# Check service status
 docker compose ps
+```
 
-# 3. View logs for any service
+The API container runs database migrations and seeds demo data before starting the Express server. PostgreSQL and Redis health checks are used as startup dependencies for the API and worker.
+
+### 10.2 Access the application
+
+| Service | Container port | Host port (default) | Address / purpose |
+|---|---:|---:|---|
+| Frontend / Nginx | `80` | `3000` | [http://localhost:3000](http://localhost:3000) |
+| Express API | `5000` | `5001` | [http://localhost:5001/api](http://localhost:5001/api) |
+| PostgreSQL | `5432` | `5434` | Host database tools can connect to `localhost:5434` |
+| Redis | `6379` | `6380` | Host Redis tools can connect to `localhost:6380` |
+| BullMQ worker | — | — | Background process; no published port |
+
+For normal browser use, open the frontend at `http://localhost:3000`. Nginx forwards `/api/` requests internally to `http://api:5000`; the browser does not need to connect to the Docker service name.
+
+### 10.3 Verify the services
+
+Check the API directly:
+
+```bash
+curl http://localhost:5001/api/health
+```
+
+Check the API through the Nginx reverse proxy:
+
+```bash
+curl http://localhost:3000/api/health
+```
+
+Both requests should return the API health response. The frontend should load at `http://localhost:3000`.
+
+### 10.4 View logs
+
+```bash
+# Follow API logs
 docker compose logs -f api
+
+# Follow frontend / Nginx logs
+docker compose logs -f client
+
+# Follow the background worker logs
 docker compose logs -f worker
 
-# 4. Stop containers preserving database data
-docker compose down
+# View database and Redis logs
+ docker compose logs --tail=100 postgres redis
+```
 
-# 5. Stop containers AND delete database volume (WARNING: Deletes all stored readings)
+### 10.5 Stop or reset the stack
+
+Stop containers and networks while preserving the PostgreSQL volume:
+
+```bash
+docker compose down
+```
+
+Stop containers and **delete the PostgreSQL data volume**:
+
+```bash
 docker compose down -v
 ```
 
-### Docker Port Mappings:
-| Service | Internal Port | Host Port | URL / Notes |
-|---|---|---|---|
-| **client** | 80 | **3000** | `http://localhost:3000` (React SPA + Nginx reverse proxy) |
-| **api** | 5000 | **5001** | `http://localhost:5001/api` (Direct Express API) |
-| **postgres** | 5432 | **5434** | Local PostgreSQL instance (mapped to avoid 5432 conflicts) |
-| **redis** | 6379 | **6380** | Redis Cache & BullMQ message broker |
-| **worker** | — | — | Standalone BullMQ reminder process |
+`docker compose down -v` permanently deletes the database volume and all data stored in it. Use it only when you intentionally want to reset the local Docker database.
+
+### 10.6 Docker troubleshooting
+
+**Frontend displays `502 Bad Gateway`**
+
+1. Check whether the API container is running: `docker compose ps`.
+2. Inspect API startup errors: `docker compose logs --tail=100 api`.
+3. Inspect Nginx logs: `docker compose logs --tail=100 client`.
+4. Test the direct API endpoint at `http://localhost:5001/api/health`.
+5. Test the same endpoint through Nginx at `http://localhost:3000/api/health`.
+
+If the direct API health check fails, investigate the API startup logs and its PostgreSQL/Redis dependencies. If the direct API works but the Nginx-proxied endpoint fails, check the Nginx upstream configuration. The configured upstream is `http://api:5000`; `api` is the Compose service name. Do not replace it with `localhost:5001` inside the Nginx container.
+
+**API cannot connect to PostgreSQL**
+
+- Confirm `postgres` is healthy with `docker compose ps`.
+- The API container must use the Compose network address `postgres:5432`, not `localhost:5434`.
+- Check `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` in the root `.env` file.
+
+**API or worker cannot connect to Redis**
+
+- Confirm Redis is healthy with `docker compose ps`.
+- Containers use `redis://redis:6379`. `localhost:6380` is only the host-side mapped address.
+
+**A host port is already in use**
+
+Change the corresponding host port in the root `.env` file (`CLIENT_PORT`, `API_PORT`, `POSTGRES_PORT`, or `REDIS_PORT`) and recreate the stack with `docker compose up -d --build`. The internal container ports and service names remain unchanged.
 
 ---
 
-## 11. Automated Testing
+## 11. Automated Testing and Build Checks
 
-### 11.1 Backend Test Suite (Node.js Native Test Runner)
-Executes all unit tests and integration tests with real PostgreSQL and Redis connections:
+Run the backend test suite (Node.js Native Test Runner):
+
 ```bash
 npm --prefix server test
 ```
-*Result: 79/79 passing tests across 14 suites.*
 
-### 11.2 Frontend Test Suite (Vitest + React Testing Library)
-Executes component and integration tests with jsdom:
+The recorded verification run reported **79 passing backend tests across 14 suites**. Backend integration tests use PostgreSQL and Redis, so make sure the test environment has the required services and configuration.
+
+Run the frontend test suite (Vitest and React Testing Library):
+
 ```bash
 npm --prefix client test
 ```
-*Result: 17/17 passing tests across 5 test files.*
 
-### 11.3 Code Quality & Production Build Verification
+The recorded verification run reported **17 passing frontend tests across 5 test files**.
+
+Run frontend lint and production build checks:
+
 ```bash
-# Verify ESLint (0 errors, 0 warnings)
+# ESLint
 npm --prefix client run lint
 
-# Verify Vite production bundle
+# Vite production build
 npm --prefix client run build
 ```
+
+The recorded final audit reported zero lint warnings/errors and a successful frontend production build. These are the results of the recorded audit, not a claim that the commands have been rerun after every later change.
 
 ---
 
 ## 12. API Documentation
 
-All protected endpoints require an authenticated session established via the `token` HTTP-only cookie.
+Protected endpoints require an authenticated session established through the `token` HTTP-only cookie.
 
-### Authentication Endpoints (`/api/auth`)
-| Method | Endpoint | Description | Status Codes |
-|---|---|---|---|
-| `POST` | `/api/auth/register` | Register new user (defaults to patient role) | 201, 400, 409 |
-| `POST` | `/api/auth/login` | Authenticate with email/password; sets HTTP-only cookie | 200, 400, 401, 429 |
-| `GET` | `/api/auth/me` | Restore user profile from active cookie session | 200, 401 |
-| `POST` | `/api/auth/logout` | Clear session cookie | 200 |
+### Authentication — `/api/auth`
 
-### Glucose Readings Endpoints (`/api/readings`)
-| Method | Endpoint | Description | Status Codes |
+| Method | Endpoint | Description | Status codes |
 |---|---|---|---|
-| `POST` | `/api/readings` | Create glucose reading with validation | 201, 400, 409 |
-| `GET` | `/api/readings?page=1&limit=20` | Paginated list of user readings | 200, 400, 401 |
-| `GET` | `/api/readings/:id` | Retrieve single reading by ID | 200, 401, 404 |
-| `PUT` | `/api/readings/:id` | Update reading value or slot | 200, 400, 404, 409 |
-| `DELETE` | `/api/readings/:id` | Delete reading with ownership check | 200, 401, 404 |
+| `POST` | `/api/auth/register` | Register a user (defaults to the patient role) | `201`, `400`, `409` |
+| `POST` | `/api/auth/login` | Authenticate and set the HTTP-only cookie | `200`, `400`, `401`, `429` |
+| `GET` | `/api/auth/me` | Restore the user profile from the active cookie session | `200`, `401` |
+| `POST` | `/api/auth/logout` | Clear the session cookie | `200` |
 
-### Report & Analytics Endpoints (`/api/reports`)
-| Method | Endpoint | Description | Status Codes |
-|---|---|---|---|
-| `GET` | `/api/reports?date=YYYY-MM-DD` | Daily, MTD, and previous-month statistical report (Redis-cached) | 200, 400, 401 |
-| `GET` | `/api/reports/trend?month=YYYY-MM` | Chronological monthly readings for Recharts trend line | 200, 400, 401 |
+### Glucose readings — `/api/readings`
 
-### Doctor Portal Endpoints (`/api/doctor`)
-| Method | Endpoint | Description | Status Codes |
+| Method | Endpoint | Description | Status codes |
 |---|---|---|---|
-| `GET` | `/api/doctor/patients` | Retrieve list of patients assigned to authenticated doctor | 200, 403 |
-| `GET` | `/api/doctor/patients/:patientId/reports?date=YYYY-MM-DD` | View assigned patient's clinical reports | 200, 403 |
+| `POST` | `/api/readings` | Create a glucose reading with validation | `201`, `400`, `409` |
+| `GET` | `/api/readings?page=1&limit=20` | Get the authenticated user's paginated readings | `200`, `400`, `401` |
+| `GET` | `/api/readings/:id` | Retrieve a single reading with ownership checks | `200`, `401`, `404` |
+| `PUT` | `/api/readings/:id` | Update a reading with ownership checks | `200`, `400`, `404`, `409` |
+| `DELETE` | `/api/readings/:id` | Delete a reading with ownership checks | `200`, `401`, `404` |
+
+### Reports and analytics — `/api/reports`
+
+| Method | Endpoint | Description | Status codes |
+|---|---|---|---|
+| `GET` | `/api/reports?date=YYYY-MM-DD` | Daily, MTD, and previous-month statistics (Redis-cached) | `200`, `400`, `401` |
+| `GET` | `/api/reports/trend?month=YYYY-MM` | Chronological monthly readings for the trend chart | `200`, `400`, `401` |
+
+### Doctor portal — `/api/doctor`
+
+| Method | Endpoint | Description | Status codes |
+|---|---|---|---|
+| `GET` | `/api/doctor/patients` | List patients assigned to the authenticated doctor | `200`, `403` |
+| `GET` | `/api/doctor/patients/:patientId/reports?date=YYYY-MM-DD` | View reports for an assigned patient | `200`, `403` |
 
 ---
 
 ## 13. Demo Credentials
 
-The database seed script automatically prepares two realistic user accounts:
+The seed script prepares the following demo accounts:
 
-| Role | Email | Password | Access Description |
+| Role | Email | Password | Access |
 |---|---|---|---|
-| **Patient** | `patient@sweety.local` | `Patient123!` | Sarah Jenkins (180+ seeded readings spanning 6 months, daily stats, trend charts) |
-| **Doctor** | `doctor@sweety.local` | `Doctor123!` | Dr. Gregory House (Assigned to monitor Sarah Jenkins) |
+| Patient | `patient@sweety.local` | `Patient123!` | Sarah Jenkins; seeded readings spanning six months |
+| Doctor | `doctor@sweety.local` | `Doctor123!` | Dr. Gregory House; assigned to monitor Sarah Jenkins |
+
+These credentials are for local demonstration only. Do not use them for a public deployment.
 
 ---
 
 ## 14. Application Screenshots
 
-Real application screenshots captured directly from the live running application:
+The following screenshots were captured from the running application:
 
-### 14.1 Login & Security Portal
+### 14.1 Login and security portal
+
 ![Login Page](docs/screenshots/01_login_page.png)
 
-### 14.2 User Registration
+### 14.2 User registration
+
 ![Register Page](docs/screenshots/02_register_page.png)
 
-### 14.3 Patient Dashboard — Today's Readings & Reverse Chronological History
+### 14.3 Patient dashboard — today's readings and history
+
 ![Patient Dashboard](docs/screenshots/03_dashboard_tracker.png)
 
-### 14.4 Statistical Reports & Recharts Monthly Trend Chart
-![Reports & Trend Chart](docs/screenshots/04_reports_analytics.png)
+### 14.4 Statistical reports and monthly trend chart
 
-### 14.5 Healthcare Professional Portal (Doctor View)
+![Reports and Trend Chart](docs/screenshots/04_reports_analytics.png)
+
+### 14.5 Healthcare professional portal
+
 ![Doctor Portal](docs/screenshots/05_doctor_portal.png)
 
 ---
 
-## 15. Known Limitations & Future Improvements
+## 15. Known Limitations and Future Improvements
 
-### Known Limitations
-- **Email Delivery Provider**: The BullMQ daily reminder worker records reminders in the `reminder_logs` database table and outputs structured console logs. It does not dispatch live emails or SMS messages because a third-party SMTP/Twilio account was not provisioned for this assignment.
-- **Manual Video Recording**: Automated screenshot capture was completed using headless Chrome CDP. A short walkthrough video recording of the browser UI should be captured manually if required for final submission review.
+### Known limitations
 
-### Future Improvements
-1. **Push Notifications**: Integrate Web Push API for browser notifications when readings are missed.
-2. **Insulin & Carbohydrate Correlation**: Extend the reading schema to track bolus insulin units and carbohydrate grams per meal.
-3. **Continuous Glucose Monitor (CGM) Integration**: Add CSV / Dexcom Clarity file import for automated reading ingestion.
-4. **PDF Clinical Summary Export**: Generate downloadable clinical PDF reports for doctor consultations.
+- **Email/SMS delivery:** The BullMQ reminder worker records reminders in the `reminder_logs` database table and writes structured console logs. It does not send live emails or SMS because an external SMTP/Twilio provider was not configured for this assignment.
+- **Walkthrough video:** Screenshots were captured from the running application. A short browser walkthrough video should be recorded separately if required for submission.
+
+### Potential future improvements
+
+1. Add Web Push notifications when readings are missed.
+2. Track insulin doses and carbohydrate intake alongside glucose readings.
+3. Add CGM data import, for example CSV or supported Dexcom Clarity exports.
+4. Generate downloadable PDF summaries for doctor consultations.
+
+---
+
+## 16. Notes — Assumptions and Next Improvements
+
+**Assumptions**
+
+- Glucose values are entered in **mg/dL**.
+- A patient can record one reading for each of the four supported slots per calendar day, with a maximum of four readings per day.
+- Doctors can access reports only for patients explicitly assigned to them.
+- The reminder worker currently records reminder events; it does not deliver external notifications.
+- This project is an assignment/demo application, not a validated medical device or a replacement for professional medical advice. Do not store real patient information in a public deployment without an appropriate security, privacy, and regulatory review.
+
+**What I would improve with more time**
+
+- Integrate a real email or push-notification provider and let users configure their reminder preferences and timezone.
+- Add end-to-end, load, and deployment-level tests, plus production monitoring and structured alerting.
+- Add clinical PDF exports and supported CGM data imports.
+- Prepare a production deployment configuration with HTTPS, managed PostgreSQL/Redis, secret management, backups, and operational monitoring.
